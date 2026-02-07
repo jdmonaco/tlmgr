@@ -9,7 +9,7 @@
 ## High Priority
 
 - [ ] Verify `cmd_changes` handles staged-only changes (ref: commit 77dce04)
-- [x] Register tlmgr on Forge and add remote (2026-02-07)
+- [x] Register tlmgr on remote git host and add remote (2026-02-07)
 
 ## Medium Priority
 

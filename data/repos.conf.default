@@ -1,21 +1,20 @@
 # tlmgr repository configuration
-  # Format: <name> <git-url>
-  # Lines starting with # and blank lines are ignored.
-  #
-  # Each entry maps a directory name to a git URL. Running `tlmgr bootstrap`
-  # will clone any repos listed here that don't already exist under TOOLS_ROOT.
-  #
-  # Examples (uncomment and edit to match your repos):
-  #
-  # SSH (GitHub):
-  # myproject   git@github.com:user/myproject.git
-  #
-  # HTTPS (GitHub):
-  # myproject   https://github.com/user/myproject.git
-  #
-  # SSH (self-hosted, custom port):
-  # myproject   ssh://git@git.example.com:2222/user/myproject.git
-  #
-  # Local path:
-  # myproject   /home/user/repos/shared-lib.git
-  
+# Format: <name> <git-url>
+# Lines starting with # and blank lines are ignored.
+#
+# Each entry maps a directory name to a git URL. Running `tlmgr bootstrap`
+# will clone any repos listed here that don't already exist under TOOLS_ROOT.
+#
+# Examples (uncomment and edit to match your repos):
+#
+# SSH (GitHub):
+# myproject   git@github.com:user/myproject.git
+#
+# HTTPS (GitHub):
+# myproject   https://github.com/user/myproject.git
+#
+# SSH (self-hosted, custom port):
+# myproject   ssh://git@git.example.com:2222/user/myproject.git
+#
+# Local path:
+# myproject   /home/user/repos/myproject.git

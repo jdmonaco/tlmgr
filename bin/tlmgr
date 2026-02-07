@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tlmgr — Tools manager for ~/tools repositories
+# tlmgr — Tools manager for multi-repo workspaces
 # Entry point: resolves paths, loads modules, dispatches commands
 
 set -eu
@@ -11,8 +11,8 @@ TLMGR_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
 TOOLS_ROOT="${TOOLS_ROOT:-$(dirname "$TLMGR_ROOT")}"
 
 # Sanity check
-if [[ ! -d "$TOOLS_ROOT/.git" ]]; then
-    echo "Error: TOOLS_ROOT ($TOOLS_ROOT) does not appear to be the tools umbrella repo" >&2
+if [[ ! -d "$TOOLS_ROOT" ]]; then
+    echo "Error: TOOLS_ROOT ($TOOLS_ROOT) is not a directory" >&2
     echo "Set TOOLS_ROOT environment variable to override" >&2
     exit 1
 fi
