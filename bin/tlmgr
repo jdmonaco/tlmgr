@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# tlmgr — Tools manager for ~/tools repositories
+# Entry point: resolves paths, loads modules, dispatches commands
+
+set -eu
+
+# --- Path Resolution ---
+# Resolve symlink to find the real script location
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+TLMGR_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+TOOLS_ROOT="${TOOLS_ROOT:-$(dirname "$TLMGR_ROOT")}"
+
+# Sanity check
+if [[ ! -d "$TOOLS_ROOT/.git" ]]; then
+    echo "Error: TOOLS_ROOT ($TOOLS_ROOT) does not appear to be the tools umbrella repo" >&2
+    echo "Set TOOLS_ROOT environment variable to override" >&2
+    exit 1
+fi
+
+# --- Version ---
+TLMGR_VERSION="$(cat "$TLMGR_ROOT/VERSION" 2>/dev/null || echo "unknown")"
+
+# --- Config ---
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tlmgr"
+REPOS_CONF="$CONFIG_DIR/repos.conf"
+
+# --- Load Modules ---
+source "$TLMGR_ROOT/lib/output.sh"
+source "$TLMGR_ROOT/lib/json.sh"
+source "$TLMGR_ROOT/lib/commands.sh"
+
+# --- Config Initialization ---
+ensure_config() {
+    if [[ ! -f "$REPOS_CONF" ]]; then
+        local default_conf="$TLMGR_ROOT/data/repos.conf.default"
+        if [[ -f "$default_conf" ]]; then
+            mkdir -p "$CONFIG_DIR"
+            cp "$default_conf" "$REPOS_CONF"
+            echo "Initialized config: $REPOS_CONF" >&2
+            echo "Edit this file to customize your repo list." >&2
+        else
+            echo "Warning: No default config found at $default_conf" >&2
+        fi
+    fi
+}
+
+# --- Main ---
+main() {
+    # Handle --version early (before config init)
+    if [[ "${1:-}" == "--version" ]]; then
+        echo "tlmgr $TLMGR_VERSION"
+        exit 0
+    fi
+
+    # Parse --json flag
+    if [[ "${1:-}" == "--json" ]]; then
+        JSON_OUTPUT=true
+        shift
+    fi
+
+    local cmd="${1:-list}"
+    shift || true
+
+    # Commands that support JSON output
+    local json_commands=("list" "ls" "summary" "branches" "br" "changes" "ch" "unpushed" "up" "untracked" "ut" "version" "config" "cfg")
+
+    # Check if --json is used with unsupported command
+    if [[ "$JSON_OUTPUT" == "true" ]]; then
+        local supported=false
+        for c in "${json_commands[@]}"; do
+            if [[ "$cmd" == "$c" ]]; then
+                supported=true
+                break
+            fi
+        done
+
+        if [[ "$supported" == "false" ]]; then
+            error "Command '$cmd' does not support --json output"
+            echo
+            echo "Commands with JSON support:"
+            echo "  list, summary, branches, changes, unpushed, untracked, version, config"
+            echo
+            echo "Try: tlmgr --json list"
+            exit 1
+        fi
+    fi
+
+    # Initialize config for commands that need it
+    case "$cmd" in
+        bootstrap|boot) ensure_config ;;
+    esac
+
+    # Dispatch
+    case "$cmd" in
+        list|ls)          cmd_list ;;
+        status|st)        cmd_status ;;
+        summary)          cmd_summary ;;
+        pull)             cmd_pull ;;
+        fetch)            cmd_fetch ;;
+        branches|br)      cmd_branches ;;
+        changes|ch)       cmd_changes ;;
+        unpushed|up)      cmd_unpushed ;;
+        untracked|ut)     cmd_untracked ;;
+        clone)            cmd_clone "$@" ;;
+        exec)             cmd_exec "$@" ;;
+        bootstrap|boot)   cmd_bootstrap ;;
+        version)          cmd_version ;;
+        config|cfg)       cmd_config ;;
+        completion)       cmd_completion "$@" ;;
+        help|--help|-h)   cmd_help ;;
+        *)
+            error "Unknown command: $cmd"
+            echo
+            cmd_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
