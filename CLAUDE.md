@@ -1,6 +1,6 @@
 # tlmgr — Development Context
 
-Read `PLAN.md` for current priorities.
+Current priorities: @PLAN.md
 
 ## Project Structure
 
