@@ -27,6 +27,7 @@ REPOS_CONF="$CONFIG_DIR/repos.conf"
 # --- Load Modules ---
 source "$TLMGR_ROOT/lib/output.sh"
 source "$TLMGR_ROOT/lib/json.sh"
+source "$TLMGR_ROOT/lib/toml.sh"
 source "$TLMGR_ROOT/lib/commands.sh"
 
 # --- Config Initialization ---
@@ -62,7 +63,7 @@ main() {
     shift || true
 
     # Commands that support JSON output
-    local json_commands=("list" "ls" "summary" "branches" "br" "changes" "ch" "unpushed" "up" "untracked" "ut" "version" "config" "cfg")
+    local json_commands=("list" "ls" "summary" "branches" "br" "changes" "ch" "unpushed" "up" "untracked" "ut" "version" "config" "cfg" "versions" "ver" "commands" "cmds")
 
     # Check if --json is used with unsupported command
     if [[ "$JSON_OUTPUT" == "true" ]]; then
@@ -78,7 +79,8 @@ main() {
             error "Command '$cmd' does not support --json output"
             echo
             echo "Commands with JSON support:"
-            echo "  list, summary, branches, changes, unpushed, untracked, version, config"
+            echo "  list, summary, branches, changes, unpushed, untracked, version, config,"
+            echo "  versions, commands"
             echo
             echo "Try: tlmgr --json list"
             exit 1
@@ -106,6 +108,8 @@ main() {
         bootstrap|boot)   cmd_bootstrap ;;
         version)          cmd_version ;;
         config|cfg)       cmd_config ;;
+        versions|ver)     cmd_versions ;;
+        commands|cmds)    cmd_commands ;;
         completion)       cmd_completion "$@" ;;
         help|--help|-h)   cmd_help ;;
         *)

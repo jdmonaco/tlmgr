@@ -1,6 +1,6 @@
 # lib/commands.sh — All tlmgr subcommand implementations
 # Sourced by bin/tlmgr
-# Depends on: lib/output.sh, lib/json.sh
+# Depends on: lib/output.sh, lib/json.sh, lib/toml.sh
 # Expects: TOOLS_ROOT, TLMGR_ROOT, TLMGR_VERSION, CONFIG_DIR, REPOS_CONF
 
 # Get all git repositories (excluding the umbrella repo itself)
@@ -512,6 +512,234 @@ cmd_completion() {
     esac
 }
 
+# Resolve version for a tool directory
+# Usage: _resolve_version <tool_path> <ver_var> <source_var>
+# Sets nameref variables for version string and source description
+_resolve_version() {
+    local tool_path="$1"
+    local -n _ver="$2"
+    local -n _src="$3"
+    local pyproject="$tool_path/pyproject.toml"
+
+    # Try pyproject.toml first
+    if [[ -f "$pyproject" ]]; then
+        # Check for static version in [project]
+        local static_ver
+        if static_ver=$(toml_get_value "$pyproject" "project" "version"); then
+            _ver="$static_ver"
+            _src="pyproject.toml"
+            return 0
+        fi
+
+        # Check for dynamic version via hatch
+        if toml_array_contains "$pyproject" "project" "dynamic" "version"; then
+            local ver_path
+            if ver_path=$(toml_get_value "$pyproject" "tool.hatch.version" "path"); then
+                local full_path="$tool_path/$ver_path"
+                if [[ -f "$full_path" ]]; then
+                    local ver_line
+                    while IFS= read -r ver_line; do
+                        if [[ "$ver_line" =~ __version__[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
+                            _ver="${BASH_REMATCH[1]}"
+                            _src="$ver_path"
+                            return 0
+                        fi
+                    done < "$full_path"
+                fi
+            fi
+        fi
+    fi
+
+    # Fallback to VERSION file
+    if [[ -f "$tool_path/VERSION" ]]; then
+        _ver=$(< "$tool_path/VERSION")
+        _ver="${_ver%$'\n'}"
+        _src="VERSION"
+        return 0
+    fi
+
+    _ver=""
+    _src="unknown"
+    return 1
+}
+
+# Show version for all tools
+cmd_versions() {
+    if [[ "$JSON_OUTPUT" == "true" ]]; then
+        local repos=()
+        while IFS= read -r tool_path; do
+            local tool=$(rel_path "$tool_path")
+            local ver="" src=""
+            _resolve_version "$tool_path" ver src || true
+
+            local ver_json
+            if [[ -n "$ver" ]]; then
+                ver_json="\"$(json_escape "$ver")\""
+            else
+                ver_json="null"
+            fi
+
+            local json="{\"name\":\"$(json_escape "$tool")\",\"version\":$ver_json,\"source\":\"$(json_escape "$src")\"}"
+            repos+=("$json")
+        done < <(get_tools)
+
+        printf "[%s]" "$(IFS=,; echo "${repos[*]}")" | jq .
+    else
+        header "Tool Versions"
+        echo
+
+        while IFS= read -r tool_path; do
+            local tool=$(rel_path "$tool_path")
+            local ver="" src=""
+            _resolve_version "$tool_path" ver src || true
+
+            if [[ -n "$ver" ]]; then
+                printf "  %-30s ${GREEN}%-12s${NC} ${CYAN}(%s)${NC}\n" "$tool" "$ver" "$src"
+            else
+                printf "  %-30s ${YELLOW}%-12s${NC}\n" "$tool" "unknown"
+            fi
+        done < <(get_tools)
+        echo
+    fi
+}
+
+# Show CLI commands/entrypoints for all tools
+cmd_commands() {
+    if [[ "$JSON_OUTPUT" == "true" ]]; then
+        local repos=()
+        while IFS= read -r tool_path; do
+            local tool=$(rel_path "$tool_path")
+            local pyproject="$tool_path/pyproject.toml"
+            local cmds=()
+
+            # Try [project.scripts] from pyproject.toml
+            if [[ -f "$pyproject" ]]; then
+                while IFS=$'\t' read -r cmd_name entrypoint; do
+                    cmds+=("{\"command\":\"$(json_escape "$cmd_name")\",\"entrypoint\":\"$(json_escape "$entrypoint")\"}")
+                done < <(toml_get_section_pairs "$pyproject" "project.scripts" 2>/dev/null || true)
+            fi
+
+            # Fallback: scan bin/ for executables
+            if [[ ${#cmds[@]} -eq 0 && -d "$tool_path/bin" ]]; then
+                while IFS= read -r -d '' bin_file; do
+                    local cmd_name=$(basename "$bin_file")
+                    cmds+=("{\"command\":\"$(json_escape "$cmd_name")\",\"entrypoint\":\"bin/$cmd_name\"}")
+                done < <(find "$tool_path/bin" -maxdepth 1 -type f -perm +111 -print0 2>/dev/null | sort -z)
+            fi
+
+            # Fallback: parse install.sh for symlinks to ~/.local/bin/
+            if [[ ${#cmds[@]} -eq 0 && -f "$tool_path/install.sh" ]]; then
+                while IFS= read -r line; do
+                    if [[ "$line" =~ ln[[:space:]]+-[a-z]*[[:space:]]+(\"[^\"]+\"|[^[:space:]]+)[[:space:]]+(\"[^\"]+\"|[^[:space:]]+) ]]; then
+                        local target="${BASH_REMATCH[2]}"
+                        target="${target//\"/}"
+                        # Match paths ending in a bin/ directory
+                        if [[ "$target" =~ /bin/([^/]+)$ ]]; then
+                            local cmd_name="${BASH_REMATCH[1]}"
+                            local source="${BASH_REMATCH[1]}"
+                            # Get the source script from the ln command
+                            local src="${line##*ln }"
+                            src="${src#*-[a-z]* }"
+                            src="${src%% *}"
+                            src="${src//\"/}"
+                            src="${src##*/}"
+                            cmds+=("{\"command\":\"$(json_escape "$cmd_name")\",\"entrypoint\":\"$(json_escape "$src")\"}")
+                        fi
+                    fi
+                done < "$tool_path/install.sh"
+            fi
+
+            # Skip tools with no commands
+            [[ ${#cmds[@]} -eq 0 ]] && continue
+
+            local cmds_json
+            cmds_json=$(IFS=,; echo "${cmds[*]}")
+            repos+=("{\"name\":\"$(json_escape "$tool")\",\"commands\":[$cmds_json]}")
+        done < <(get_tools)
+
+        printf "[%s]" "$(IFS=,; echo "${repos[*]}")" | jq .
+    else
+        header "CLI Commands"
+        echo
+
+        local found=false
+        while IFS= read -r tool_path; do
+            local tool=$(rel_path "$tool_path")
+            local pyproject="$tool_path/pyproject.toml"
+            local has_cmds=false
+
+            # Try [project.scripts] from pyproject.toml
+            if [[ -f "$pyproject" ]]; then
+                local pairs=""
+                if pairs=$(toml_get_section_pairs "$pyproject" "project.scripts" 2>/dev/null); then
+                    tool_name "$tool"
+                    while IFS=$'\t' read -r cmd_name entrypoint; do
+                        printf "    %-20s %s\n" "$cmd_name" "$entrypoint"
+                    done <<< "$pairs"
+                    echo
+                    has_cmds=true
+                    found=true
+                fi
+            fi
+
+            # Fallback: scan bin/ for executables
+            if [[ "$has_cmds" == "false" && -d "$tool_path/bin" ]]; then
+                local bin_files=()
+                while IFS= read -r -d '' bin_file; do
+                    bin_files+=("$bin_file")
+                done < <(find "$tool_path/bin" -maxdepth 1 -type f -perm +111 -print0 2>/dev/null | sort -z)
+
+                if [[ ${#bin_files[@]} -gt 0 ]]; then
+                    tool_name "$tool"
+                    for bin_file in "${bin_files[@]}"; do
+                        local cmd_name=$(basename "$bin_file")
+                        printf "    %-20s bin/%s\n" "$cmd_name" "$cmd_name"
+                    done
+                    echo
+                    has_cmds=true
+                    found=true
+                fi
+            fi
+
+            # Fallback: parse install.sh for symlinks to ~/.local/bin/
+            if [[ "$has_cmds" == "false" && -f "$tool_path/install.sh" ]]; then
+                local install_cmds=()
+                while IFS= read -r line; do
+                    if [[ "$line" =~ ln[[:space:]]+-[a-z]*[[:space:]]+(\"[^\"]+\"|[^[:space:]]+)[[:space:]]+(\"[^\"]+\"|[^[:space:]]+) ]]; then
+                        local target="${BASH_REMATCH[2]}"
+                        target="${target//\"/}"
+                        if [[ "$target" =~ /bin/([^/]+)$ ]]; then
+                            local cmd_name="${BASH_REMATCH[1]}"
+                            local src="${line##*ln }"
+                            src="${src#*-[a-z]* }"
+                            src="${src%% *}"
+                            src="${src//\"/}"
+                            src="${src##*/}"
+                            install_cmds+=("$cmd_name"$'\t'"$src")
+                        fi
+                    fi
+                done < "$tool_path/install.sh"
+
+                if [[ ${#install_cmds[@]} -gt 0 ]]; then
+                    tool_name "$tool"
+                    for entry in "${install_cmds[@]}"; do
+                        local cmd_name="${entry%%$'\t'*}"
+                        local entrypoint="${entry#*$'\t'}"
+                        printf "    %-20s %s\n" "$cmd_name" "$entrypoint"
+                    done
+                    echo
+                    found=true
+                fi
+            fi
+        done < <(get_tools)
+
+        if [[ "$found" == "false" ]]; then
+            info "No CLI commands found"
+            echo
+        fi
+    fi
+}
+
 # Show help
 cmd_help() {
     cat << EOF
@@ -528,7 +756,9 @@ Commands (with JSON support):
     changes     Show tools with uncommitted changes
     unpushed    Show tools with unpushed commits
     untracked   Show tools with untracked files
-    version     Show version and paths
+    versions    Show version for each tool
+    commands    Show CLI commands/entrypoints for each tool
+    version     Show tlmgr version and paths
     config      Show configuration paths
 
 Commands (operations):
@@ -542,8 +772,8 @@ Commands (operations):
     help        Show this help message
 
 Aliases:
-    ls=list  br=branches  ch=changes  up=unpushed
-    ut=untracked  st=status  boot=bootstrap  cfg=config
+    ls=list  br=branches  ch=changes  up=unpushed  ver=versions
+    ut=untracked  st=status  boot=bootstrap  cfg=config  cmds=commands
 
 Examples:
     tlmgr                           # List all tools

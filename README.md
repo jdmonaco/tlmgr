@@ -80,6 +80,8 @@ tlmgr                     # List all repos with status (default)
 tlmgr list                # Same as above
 tlmgr summary             # Summary statistics
 tlmgr branches            # Show current branch for all repos
+tlmgr versions            # Show version for each tool
+tlmgr commands            # Show CLI commands/entrypoints for each tool
 ```
 
 ### Change Detection
@@ -120,6 +122,8 @@ tlmgr help                # Show help
 | `up` | `unpushed` |
 | `ut` | `untracked` |
 | `st` | `status` |
+| `ver` | `versions` |
+| `cmds` | `commands` |
 | `boot` | `bootstrap` |
 | `cfg` | `config` |
 
@@ -130,9 +134,12 @@ All read-only commands support `--json` for programmatic use:
 ```bash
 tlmgr --json list
 tlmgr --json summary
+tlmgr --json versions
+tlmgr --json commands
 tlmgr --json list | jq '.[] | select(.is_clean == false)'
 tlmgr --json list | jq '.[] | select(.unpushed_commits > 0)'
-tlmgr --json branches | jq '.[] | select(.upstream == null)'
+tlmgr --json versions | jq '.[] | select(.version != null)'
+tlmgr --json commands | jq '.[] | select(.commands | length > 1)'
 ```
 
 ## Bash Completion

@@ -16,7 +16,9 @@
 - [ ] `tlmgr add <url> [name]` — clone + auto-register in repos.conf
 - [ ] `tlmgr remove <name>` — unregister from repos.conf (optionally delete dir)
 - [ ] Repo name filtering — `tlmgr changes mdsuite tidyup` (operate on subset)
-- [ ] `tlmgr versions` — extract version from pyproject.toml/VERSION across tools
+- [x] `tlmgr versions` — extract version from pyproject.toml/VERSION across tools (2026-03-03)
+- [x] `tlmgr commands` — list CLI entrypoints from `[project.scripts]` in pyproject.toml (or equivalent) across tools (2026-03-03)
+- [ ] Migrate tools to dynamic hatch versioning (7 projects with static versions)
 
 ## Low Priority
 

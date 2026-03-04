@@ -10,10 +10,10 @@ _tlmgr_completions() {
     cword="$COMP_CWORD"
 
     # All subcommands (canonical + aliases)
-    local subcommands="list ls summary branches br changes ch unpushed up untracked ut status st pull fetch clone exec bootstrap boot completion config cfg version help"
+    local subcommands="list ls summary branches br changes ch unpushed up untracked ut status st pull fetch clone exec bootstrap boot completion config cfg version versions ver commands cmds help"
 
     # JSON-capable subcommands
-    local json_commands="list ls summary branches br changes ch unpushed up untracked ut version config cfg"
+    local json_commands="list ls summary branches br changes ch unpushed up untracked ut version config cfg versions ver commands cmds"
 
     # Determine if --json was given
     local has_json=false

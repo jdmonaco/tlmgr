@@ -10,6 +10,7 @@ tlmgr/
 ├── lib/
 │   ├── output.sh          # Colors, header/error/info/warning helpers, git_safe, rel_path
 │   ├── json.sh            # json_escape, json_object, HAS_JQ detection, JSON_OUTPUT flag
+│   ├── toml.sh            # toml_get_value, toml_array_contains, toml_get_section_pairs
 │   └── commands.sh        # All cmd_* functions, get_tools, for_each_tool
 ├── data/
 │   ├── completion.bash    # Bash completion for tlmgr
@@ -41,10 +42,11 @@ TOOLS_ROOT="${TOOLS_ROOT:-$(dirname "$TLMGR_ROOT")}"       # parent directory
 
 ### Module Architecture
 
-`bin/tlmgr` sources three modules in order:
+`bin/tlmgr` sources four modules in order:
 1. `lib/output.sh` — no dependencies
 2. `lib/json.sh` — no dependencies
-3. `lib/commands.sh` — depends on output.sh and json.sh globals
+3. `lib/toml.sh` — no dependencies
+4. `lib/commands.sh` — depends on output.sh, json.sh, and toml.sh globals
 
 All modules share global variables: `TOOLS_ROOT`, `TLMGR_ROOT`, `CONFIG_DIR`, `REPOS_CONF`, `TLMGR_VERSION`, `JSON_OUTPUT`.
 
@@ -73,6 +75,10 @@ tlmgr --json summary          # Valid JSON
 tlmgr changes                 # Cross-check with git status
 tlmgr config                  # Correct paths
 tlmgr version                 # Matches VERSION file
+tlmgr versions                # All tools with version + source
+tlmgr --json versions         # Valid JSON array
+tlmgr commands                # All CLI entrypoints grouped by tool
+tlmgr --json commands         # Valid JSON array
 tlmgr bootstrap               # Skips existing, reports counts
 tlmgr completion bash          # Valid bash script
 source <(tlmgr completion bash) && tlmgr <TAB>  # Completion works
