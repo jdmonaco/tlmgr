@@ -742,60 +742,42 @@ cmd_commands() {
 
 # Show help
 cmd_help() {
-    cat << EOF
+    cat << 'EOF'
 Usage: tlmgr [--json] <command> [args]
 
+Inventory:
+  list (ls)         List all tools with status [default]
+  summary           Show aggregate statistics
+  versions (ver)    Show version for each tool
+  commands (cmds)   Show CLI entrypoints for each tool
+
+Git state:
+  branches (br)     Show current branch for all tools
+  changes (ch)      Show uncommitted changes
+  unpushed (up)     Show unpushed commits
+  untracked (ut)    Show untracked files
+  status (st)       Show full git status
+
+Operations:
+  pull              Pull (rebase) all tools
+  fetch             Fetch all remotes
+  clone <url>       Clone a new tool repository
+  exec <cmd>        Run command in all tool directories
+  bootstrap (boot)  Clone repos from config
+
+Config:
+  config (cfg)      Show configuration paths
+  version           Show tlmgr version
+  completion bash   Manage bash completion
+  help              Show this help
+
 Options:
-    --json      Output in JSON format (for programmatic use)
-    --version   Show version
-
-Commands (with JSON support):
-    list        List all tools with status (default)
-    summary     Show summary statistics
-    branches    Show current branch for all tools
-    changes     Show tools with uncommitted changes
-    unpushed    Show tools with unpushed commits
-    untracked   Show tools with untracked files
-    versions    Show version for each tool
-    commands    Show CLI commands/entrypoints for each tool
-    version     Show tlmgr version and paths
-    config      Show configuration paths
-
-Commands (operations):
-    status      Show git status for all tools
-    pull        Pull (with rebase) all tools
-    fetch       Fetch all remotes for all tools
-    clone       Clone a new tool repository
-    exec        Run a custom command in all tool directories
-    bootstrap   Clone all repos from config
-    completion  Manage bash completion
-    help        Show this help message
-
-Aliases:
-    ls=list  br=branches  ch=changes  up=unpushed  ver=versions
-    ut=untracked  st=status  boot=bootstrap  cfg=config  cmds=commands
+  --json            JSON output (inventory + git-state commands)
+  --version         Show version
 
 Examples:
-    tlmgr                           # List all tools
-    tlmgr --json list               # List in JSON format
-    tlmgr summary                   # Show summary statistics
-    tlmgr changes                   # Show what needs committing
-    tlmgr unpushed                  # Show what needs pushing
-    tlmgr pull                      # Update all repos
-    tlmgr bootstrap                 # Clone repos from config
-    tlmgr clone https://github.com/user/new-tool.git
-    tlmgr exec "git log -1 --oneline"
-    tlmgr completion bash --install # Install bash completion
-
-JSON Filtering with jq:
-    tlmgr --json list | jq '.[] | select(.has_changes)'
-    tlmgr --json list | jq '.[] | select(.unpushed_commits > 0)'
-    tlmgr --json branches | jq '.[] | select(.upstream == null)'
-
+  tlmgr                              List all tools
+  tlmgr changes                      What needs committing?
+  tlmgr --json list | jq '.[] | select(.has_changes)'
 EOF
-    printf "Legend:\n"
-    printf "    %b = Clean (no changes)\n" "${GREEN}✓${NC}"
-    printf "    %b = Modified (uncommitted changes)\n" "${YELLOW}M${NC}"
-    printf "    %b = Unpushed (commits not pushed)\n" "${CYAN}↑${NC}"
-    printf "    %b = Untracked (untracked files)\n" "${RED}?${NC}"
 }
